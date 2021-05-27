@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -7,18 +6,17 @@ using API.DTOs;
 using API.Entities;
 using API.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace API.Controllers
 {
     public class AccountController : BaseApiController
     {
-        private readonly DataContext _context;
+        private readonly IUsersRepository _usersRepository;
         private readonly ITokenService _tokenService;
-        public AccountController(DataContext context, ITokenService tokenService)
+        public AccountController(IUsersRepository usersRepository, ITokenService tokenService)
         {
             _tokenService = tokenService;
-            _context = context;
+            _usersRepository = usersRepository;
         }
 
         [HttpPost("register")]
@@ -35,8 +33,7 @@ namespace API.Controllers
                 PasswordSalt = hmac.Key
             };
 
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            await _usersRepository.AddUser(user);
 
             return new UserDto
             {
@@ -48,7 +45,7 @@ namespace API.Controllers
         [HttpPost("login")]
         public async Task<ActionResult<UserDto>> Login(LoginDto loginDto)
         {
-            var user = await _context.Users.SingleOrDefaultAsync(u => u.UserName.Equals(loginDto.Username));
+            var user = await _usersRepository.GetUser(loginDto.Username);
 
             if (user == null) return Unauthorized("Invalid username");
 
@@ -70,7 +67,7 @@ namespace API.Controllers
 
         private async Task<bool> UserExists(string username)
         {
-            return await _context.Users.AnyAsync(u => u.UserName.Equals(username.ToLower()));
+            return (await _usersRepository.GetUser(username)) != null;
         }
     }
 }
